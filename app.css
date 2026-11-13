@@ -865,3 +865,61 @@
 .topbar-toggle:hover {
   border-color: var(--gold-light);
 }
+
+/* Action-first player layout and roomy staff workspace. */
+.section-title,.priority-section h2,.workspace-toolbar h2 { font:700 24px FuturaDisplay,sans-serif; margin:0; }
+.priority-section { margin:24px 0 32px; border-left:4px solid var(--support-accent); padding:18px 20px 8px; background:var(--tint-green); border-radius:0 16px 16px 0; }
+.priority-section > p { margin:6px 0 16px; color:var(--muted); }
+.priority-section .training-card { background:var(--surface); }
+.tc-body h3 { font-family:FuturaPT,sans-serif; font-size:18px; font-weight:700; }
+.day-group h2 { font-family:FuturaPT,sans-serif; font-size:15px; letter-spacing:.04em; font-weight:700; }
+.sc-detail h4 { font-family:FuturaPT,sans-serif; font-size:15px; letter-spacing:.02em; }
+.staff-view .app-main { max-width:1600px; }
+.staff-workspace { display:grid; grid-template-columns:minmax(0,1fr) 290px; gap:28px; margin-top:28px; align-items:start; }
+.staff-workspace > section,.admin-content { min-width:0; }
+.staff-aside { position:sticky; top:100px; }
+.staff-aside .panel { margin:0 0 20px; padding:20px; border-top:3px solid var(--support-accent); }
+.staff-aside .panel-intro { margin:16px 0 0; }
+.staff-aside .roster li { flex-wrap:wrap; }
+.staff-aside .comment { overflow-wrap:anywhere; }
+.workspace-toolbar { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.workspace-toolbar label { display:flex; gap:8px; align-items:center; font-size:15px; }
+.workspace-toolbar select { padding:10px; border:1px solid var(--line-strong); border-radius:10px; color:var(--text); background:var(--surface); font:400 16px FuturaPT,sans-serif; max-width:100%; }
+.admin-layout { display:grid; grid-template-columns:190px minmax(0,1fr); gap:28px; margin-top:28px; }
+.admin-layout .tabs { display:flex; flex-direction:column; align-self:start; position:sticky; top:100px; margin:0; border:0; gap:8px; }
+.admin-layout .tab { text-align:left; border:0; border-left:3px solid transparent; border-radius:0 10px 10px 0; white-space:normal; padding:16px; }
+.admin-layout .tab[aria-selected="true"] { border-color:var(--gold); background:var(--tint-green); }
+.admin-content > .tiles,.admin-content > .panel:first-child { margin-top:0; }
+.staff-view .sc-stats { gap:10px; flex-wrap:wrap; justify-content:flex-end; max-width:300px; }
+.staff-view .sc-detail { grid-template-columns:1fr 1fr; gap:24px; }
+.staff-view .avg-row { grid-template-columns:1fr 65px; }
+.staff-view .avg-row strong { grid-column:1 / -1; }
+.staff-view .add-user { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.staff-view .add-user .btn { justify-self:start; }
+@media(min-width:1350px) { .staff-view .sc-stats { max-width:none; } }
+@media(max-width:1150px) { .staff-workspace { grid-template-columns:1fr; } .staff-aside { position:static; display:grid; grid-template-columns:1fr 1fr; gap:20px; } }
+@media(max-width:760px) {
+  .app-main { padding-top:22px; }
+  .page-head h1 { margin:10px 0 4px; }
+  .tiles { grid-template-columns:repeat(3,minmax(0,1fr)); margin:18px 0 8px; gap:8px; }
+  .tiles .tile:first-child { grid-column:auto; }
+  .tile { padding:10px; border-radius:10px; }
+  .tile span { font-size:13px; line-height:1.25; }
+  .tile strong { font-size:20px; }
+  .notice { font-size:14px; }
+  .priority-section { padding:14px 12px 2px; margin:18px 0 24px; }
+  .topbar { gap:8px; padding:10px 12px; flex-wrap:wrap; }
+  .topbar-user { gap:8px; flex-wrap:wrap; justify-content:flex-end; flex:1; }
+  .topbar-who { font-size:14px; }
+  .topbar-who strong { font-size:14px; }
+  .topbar .appearance-trigger { order:4; }
+  .admin-layout { display:block; margin-top:18px; }
+  .admin-layout .tabs { position:static; flex-direction:row; margin-bottom:20px; }
+  .admin-layout .tab { border-left:0; border-bottom:3px solid transparent; border-radius:8px 8px 0 0; padding:12px; white-space:nowrap; }
+  .staff-aside { display:block; }
+  .staff-view .sc-detail { grid-template-columns:1fr; gap:0; }
+  .staff-view .sc-stats { justify-content:flex-start; max-width:none; }
+  .staff-view .add-user { grid-template-columns:1fr; }
+  .roster li { flex-wrap:wrap; }
+  .tc-body p,.tc-time span { font-size:16px; }
+}

@@ -20,6 +20,7 @@ const me = session && state.users.find((u) => u.id === session.userId && u.activ
 
 let adminTab = "trainings";
 let teamFilter = "all";
+let periodFilter = "all";
 let uploadMessage = null;
 let toastTimer;
 
@@ -127,6 +128,7 @@ function toast(text) {
 /* ---------- rendering ---------- */
 
 function render() {
+  document.body.classList.toggle("staff-view", me.role !== "player");
   const wasOpen = new Map([...app.querySelectorAll("details")].map((d) => [d.dataset.id, d.open]));
   if (me.role === "player") {
     app.innerHTML = playerView();
@@ -134,8 +136,7 @@ function render() {
     const mine = state.trainings.filter((t) => t.team === me.team);
     app.innerHTML =
       pageHead(`Szia, ${firstName(me.name)}!`, `${me.team} edzője · jelenlét és visszajelzések`) +
-      staffSummary(mine) +
-      staffList(mine, false);
+      staffSummary(mine) + staffWorkspace(mine, false);
   } else {
     app.innerHTML = adminView();
   }
@@ -212,6 +213,10 @@ function playerView() {
       ["Jelenlét", `${attended}/${finished.length}`],
     ]) +
     scheduleNotice() +
+    `<section class="priority-section"><h2>Most neked</h2><p>A következő lépésed, egy helyen.</p>${(() => {
+      const actionable = mine.filter(t => ["can-checkin", "inside", "feedback"].includes(playerState(t, now).key)).sort((a,b) => Number(playerState(a,now).key === "feedback") - Number(playerState(b,now).key === "feedback") || byStart(a,b));
+      return actionable.length ? actionable.map(t => playerCard(t, now)).join("") : next ? playerCard(next, now) : '<p>Nincs aktuális teendőd.</p>';
+    })()}</section><h2 class="section-title">Heti beosztás</h2>` +
     groupByDay(mine)
       .map((g) => `<section class="day-group"><h2>${esc(g.label)}</h2>${g.items.map((t) => playerCard(t, now)).join("")}</section>`)
       .join("")
@@ -315,6 +320,20 @@ function staffList(trainings, showTeam) {
     .join("");
 }
 
+function staffWorkspace(trainings, showTeam) {
+  const now = new Date();
+  const filtered = trainings.filter(t => periodFilter === "all" || (periodFilter === "today" ? dayKey(t.start) === dayKey(now) : periodFilter === "live" ? ["live", "open"].includes(phase(t, now)) : phase(t, now) === "ended"));
+  const ids = new Set(trainings.map(t => t.id));
+  const recent = state.feedback.filter(f => ids.has(f.trainingId)).sort((a,b) => new Date(b.at)-new Date(a.at)).slice(0,4);
+  const teamRows = [...new Set(trainings.map(t => t.team))].map(team => {
+    const players = state.users.filter(u => u.team === team && u.role === "player" && u.active);
+    return `<li><strong>${esc(team)}</strong><span>${players.length} aktív játékos</span></li>`;
+  }).join("");
+  return `<div class="staff-workspace"><section aria-label="Edzések áttekintése"><div class="workspace-toolbar"><h2>Edzésközpont</h2><label>Időszak <select data-filter="period">${[["all","Minden edzés"],["today","Ma"],["live","Folyamatban / nyitva"],["ended","Lezárult"]].map(([v,l]) => `<option value="${v}" ${v===periodFilter?"selected":""}>${l}</option>`).join("")}</select></label></div>${staffList(filtered, showTeam)}</section>
+    <aside class="staff-aside"><section class="panel"><h2>Csapatáttekintés</h2><ul class="roster">${teamRows}</ul><p class="panel-intro">A jelenléti névsorhoz és az edzés visszajelzéseihez nyisd le az edzés kártyáját.</p></section>
+    <section class="panel"><h2>Friss visszajelzések</h2>${recent.length ? `<ul class="comments">${recent.map(f => `<li class="comment">${faceSvg(f.answers.mood,"face-xs")}<div><strong>${esc(f.anonymous ? "Névtelen" : userById(f.userId)?.name || "Ismeretlen")}</strong><p>${esc(f.comment || "Szöveges megjegyzés nélkül")}</p><span>${esc(state.trainings.find(t=>t.id===f.trainingId)?.title)} · ${time(f.at)}</span></div></li>`).join("")}</ul>` : '<p class="empty">Még nincs visszajelzés.</p>'}</section></aside></div>`;
+}
+
 function staffCard(t, now, showTeam) {
   const p = phase(t, now);
   const roster = state.users.filter((u) => u.role === "player" && u.team === t.team && u.active);
@@ -389,7 +408,7 @@ function adminView() {
     .map(([id, label]) => `<button class="tab" type="button" role="tab" aria-selected="${adminTab === id}" data-act="tab" data-tab="${id}">${label}</button>`)
     .join("")}</nav>`;
   const body = adminTab === "users" ? usersTab() : adminTab === "upload" ? uploadTab() : trainingsTab();
-  return pageHead(`Szia, ${firstName(me.name)}!`, "Adminisztráció · minden csapat edzése, felhasználók és beosztás") + tabBar + body;
+  return pageHead(`Szia, ${firstName(me.name)}!`, "Adminisztráció · minden csapat edzése, felhasználók és beosztás") + `<div class="admin-layout">${tabBar}<div class="admin-content">${body}</div></div>`;
 }
 
 function trainingsTab() {
@@ -399,7 +418,7 @@ function trainingsTab() {
     .join("");
   return `${staffSummary(list)}
     <div class="filter-row"><label>Csapat <select data-filter="team">${options}</select></label></div>
-    ${staffList(list, true)}`;
+    ${staffWorkspace(list, true)}`;
 }
 
 function usersTab() {
@@ -502,7 +521,10 @@ function onClick(event) {
 
 function onChange(event) {
   const input = event.target;
-  if (input.matches("[data-filter='team']")) {
+  if (input.matches("[data-filter='period']")) {
+    periodFilter = input.value;
+    render();
+  } else if (input.matches("[data-filter='team']")) {
     teamFilter = input.value;
     render();
   } else if (input.matches("[data-upload]") && input.files[0]) {

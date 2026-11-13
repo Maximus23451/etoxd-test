@@ -47,7 +47,30 @@ A demó edzései az aktuális időponthoz igazodnak (van épp zajló, nemrég v�
 
 ## Arculat
 
-- Színek: csak az ETO három színe (zöld `#176131`, arany `#b8994d`, krém `#f9f5ef`), illetve ezek árnyalatai és semleges szürkék.
+- Az arculat három rögzített alapszíne: ETO-zöld `#176131`, arany `#b8994d` és krém `#f9f5ef`.
+  A klub a kiegészítő színek használatában rugalmas; az alapszínek árnyalatai, semleges szürkék és az arculathoz illő további színek is használhatók.
+  A klub kifejezett kérése: lila és neon színek sehol ne szerepeljenek a felületen, egyik megjelenítési módban sem.
   A színek tokenként a `styles.css` elején vannak.
 - Világos és sötét mód: alapból a rendszer beállítását követi, a nap/hold gombbal (bejelentkezés jobb felső sarok, portál fejléc) át lehet váltani; a választást a böngésző megjegyzi.
 - Betűtípusok: `public/assets/fonts/` (FuturaDisplay 800/700, FuturaPT 400).
+
+## Megjelenés és ötletdoboz
+
+A „Megjelenés & ötletek” gomb a bejelentkező oldalon és a portál fejlécében is elérhető.
+Négy választható színterv mini portálelőnézettel:
+
+- **ETO Klasszikus**: az eredeti zöld–arany–krém paletta.
+- **Homokkő**: meleg homokszínű felületek, terrakotta kiegészítő szín.
+- **Palakék**: hűvös, világos felületek és visszafogott palakék kiegészítés.
+- **Erdő**: zsályás felületek, erdőzöld kiegészítés.
+
+Mindegyik paletta használható világos és sötét módban; a „Rendszer” beállítás az operációs rendszer megjelenését követi.
+A paletta és a mód egymástól függetlenül választható. A választás böngészőnként a `localStorage`-ban marad meg,
+nem felhasználói fiókhoz kötött és nem szinkronizálódik más eszközökre. Lila és neon színek egyik témában sincsenek.
+
+Az **ötletdoboz** legfeljebb 50, egyenként 500 karakteres saját ötlet mentésére és törlésére szolgál.
+Az ötletek csak az adott böngészőben tárolódnak; nem kerülnek elküldésre a klubnak, és ugyanazon böngésző más demó felhasználói is láthatják őket.
+
+A játékosoldalon a „Most neked” szakasz emeli ki a belépést, kilépést és a még elküldhető visszajelzéseket.
+Az edzői és adminisztrátori asztali nézet szélesebb munkafelületet, időszakszűrőt, csapatáttekintést és friss visszajelzéseket kapott.
+Az adminisztráció asztali oldalsó navigációja mobilon vízszintes navigációra vált.
