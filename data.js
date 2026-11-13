@@ -9,7 +9,7 @@
   // Demo trainings are generated relative to "now", so refresh them when they get old.
   const RESEED_AFTER_MS = 6 * 60 * MIN;
 
-  const ROLES = { player: "Játékos", coach: "Edző", admin: "Admin" };
+  const ROLES = { player: "Játékos", coach: "Edző", admin: "Admin", manager: "Rendszergazda" };
 
   // Standard slider questions shown at the end of a training (0–4 scale).
   const QUESTIONS = [
@@ -56,6 +56,7 @@
       { id: "p10", talentx: "TX-1007", name: "Lakatos Bálint", role: "player", team: "U17", active: false },
       { id: "c1", talentx: "TX-2001", name: "Nagy Péter", role: "coach", team: "U17", active: true },
       { id: "c2", talentx: "TX-2002", name: "Szabó Anna", role: "coach", team: "U19", active: true },
+      { id: "system-manager", talentx: "TX-0001", name: "ETO Rendszergazda", role: "manager", team: "", active: true },
       { id: "a1", talentx: "TX-9001", name: "Kovács Eszter", role: "admin", team: "", active: true },
     ];
 
@@ -160,9 +161,22 @@
     const seededAt = state && new Date(state.seededAt);
     const stale = !state || now - seededAt > RESEED_AFTER_MS || seededAt.toDateString() !== now.toDateString();
     if (stale) {
+      const previous = state;
       state = seed(now);
+      if (previous?.users?.length) state.users = previous.users;
+      state.customRoles = previous?.customRoles || [];
+      state.audit = previous?.audit || [];
       save(state);
     }
+    state.customRoles ||= [];
+    state.audit ||= [];
+    if (!state.users.some(u => u.role === "manager")) {
+      const id = state.users.some(u=>u.id === "system-manager") ? "system-" + crypto.randomUUID() : "system-manager";
+      let talentx = "TX-0001";
+      while (state.users.some(u => u.talentx.toUpperCase() === talentx)) talentx = "SYS-" + crypto.randomUUID().slice(0,8).toUpperCase();
+      state.users.push({id, talentx, name:"ETO Rendszergazda", role:"manager", team:"", active:true});
+    }
+    save(state);
     return state;
   }
 
@@ -210,15 +224,81 @@
     return deadline - end < 60 * MIN ? new Date(end.getTime() + 60 * MIN) : deadline;
   }
 
+  function baseRole(state, role) {
+    return Object.hasOwn(ROLES, role) ? role : state.customRoles?.find(r => r.id === role)?.base || null;
+  }
+
+  function roleLabel(state, role) {
+    return ROLES[role] || state.customRoles?.find(r => r.id === role)?.name || "Ismeretlen";
+  }
+
+  function canAssignRole(state, actorId, role) {
+    const actor = state.users.find(u => u.id === actorId && u.active);
+    const base = baseRole(state, role);
+    if (!actor || !base) return false;
+    return actor.role === "manager" || (baseRole(state, actor.role) === "admin" && ["player", "coach"].includes(base));
+  }
+
+  function canManageUser(state, actorId, targetId) {
+    const target = state.users.find(u => u.id === targetId);
+    return !!target && actorId !== targetId && canAssignRole(state, actorId, target.role);
+  }
+
+  function logAccountChange(state, actorId, action, detail) {
+    state.audit.unshift({id:crypto.randomUUID(), actorId, action, detail, at:new Date().toISOString()});
+    state.audit = state.audit.slice(0,200);
+  }
+
+  function createUser(state, actorId, data) {
+    if (!canAssignRole(state, actorId, data.role)) return "Nincs jogosultságod ehhez a szerepkörhöz.";
+    const name = String(data.name || "").trim();
+    const talentx = String(data.talentx || "").trim().toUpperCase();
+    const base = baseRole(state, data.role);
+    if (!name || name.length > 80 || !/^[A-Z0-9-]{3,40}$/.test(talentx)) return "Adj meg nevet és érvényes TalentX azonosítót (3–40 betű, szám vagy kötőjel).";
+    if (state.users.some(u => u.talentx.toUpperCase() === talentx)) return "Ez a TalentX azonosító már létezik.";
+    if (["player", "coach"].includes(base) && !teams(state).includes(data.team)) return "Válassz csapatot a játékosnak vagy edzőnek.";
+    state.users.push({id:crypto.randomUUID(), name, talentx, role:data.role, team:["player", "coach"].includes(base) ? data.team : "", active:true});
+    logAccountChange(state, actorId, "Fiók létrehozása", `${name} · ${roleLabel(state, data.role)}`);
+    return null;
+  }
+
+  function updateUser(state, actorId, targetId, changes) {
+    if (!canManageUser(state, actorId, targetId)) return "Ezt a fiókot nem módosíthatod (saját vagy védett fiók).";
+    const target = state.users.find(u => u.id === targetId);
+    if (changes.role !== undefined) {
+      if (!canAssignRole(state, actorId, changes.role)) return "Ezt a szerepkört nem oszthatod ki.";
+      const base = baseRole(state, changes.role);
+      const team = changes.team ?? target.team;
+      if (["player", "coach"].includes(base) && !teams(state).includes(team)) return "Válassz csapatot a játékosnak vagy edzőnek.";
+      target.role = changes.role;
+      target.team = ["player", "coach"].includes(base) ? team : "";
+    }
+    if (typeof changes.active === "boolean") target.active = changes.active;
+    logAccountChange(state, actorId, "Fiók módosítása", `${target.name} · ${roleLabel(state,target.role)} · ${target.active ? "aktív" : "tiltva"}`);
+    return null;
+  }
+
+  function createRole(state, actorId, name, base) {
+    const actor = state.users.find(u => u.id === actorId && u.active);
+    if (actor?.role !== "manager") return "Csak a rendszergazda hozhat létre szerepkört.";
+    name = String(name || "").trim();
+    if (!name || name.length > 60 || !["player", "coach", "admin"].includes(base)) return "Adj meg nevet és érvényes jogosultsági szintet.";
+    if ([...Object.values(ROLES), ...state.customRoles.map(r=>r.name)].some(n=>n.toLocaleLowerCase("hu")===name.toLocaleLowerCase("hu"))) return "Ez a szerepkör már létezik.";
+    state.customRoles.push({id:"role-"+crypto.randomUUID(), name, base});
+    logAccountChange(state, actorId, "Szerepkör létrehozása", `${name} · ${ROLES[base]}`);
+    return null;
+  }
+
   function teams(state) {
-    return [...new Set(state.users.filter((u) => u.role === "player" && u.team).map((u) => u.team))].sort();
+    return [...new Set(state.users.filter((u) => baseRole(state, u.role) === "player" && u.team).map((u) => u.team))].sort();
   }
 
   function coachOf(state, team) {
-    return state.users.find((u) => u.role === "coach" && u.team === team);
+    return state.users.find((u) => baseRole(state, u.role) === "coach" && u.team === team);
   }
 
   window.EtoStore = {
+    baseRole, roleLabel, canAssignRole, canManageUser, createUser, updateUser, createRole,
     MIN,
     ROLES,
     QUESTIONS,

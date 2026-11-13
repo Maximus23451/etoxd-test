@@ -18,7 +18,8 @@ let state = store.load();
 const session = store.getSession();
 const me = session && state.users.find((u) => u.id === session.userId && u.active);
 
-let adminTab = "trainings";
+const myRole = store.baseRole(state, me?.role);
+let adminTab = myRole === "manager" ? "system" : "trainings";
 let teamFilter = "all";
 let periodFilter = "all";
 let uploadMessage = null;
@@ -26,7 +27,7 @@ let toastTimer;
 
 function init() {
   document.querySelector("#user-name").textContent = me.name;
-  document.querySelector("#user-role").textContent = store.ROLES[me.role] + (me.team ? " · " + me.team : "");
+  document.querySelector("#user-role").textContent = store.roleLabel(state, me.role) + (me.team ? " · " + me.team : "");
   document.querySelector("#logout").addEventListener("click", () => {
     store.clearSession();
     location.href = "index.html";
@@ -84,8 +85,19 @@ function phase(t, now = new Date()) {
   return "upcoming";
 }
 
+// Interpolate the same SVG geometry continuously between the five expression anchors.
+function faceShape(value) {
+  const level = Math.max(0, Math.min(4, Number(value) || 0));
+  const low = Math.floor(level), high = Math.min(4, low + 1), weight = level - low;
+  const a = FACES[low], b = FACES[high];
+  const blend = (x,y) => x + (y-x)*weight;
+  const numbers = b.mouth.match(/-?\d+(?:\.\d+)?/g).map(Number);
+  let i = 0;
+  return {tone:level < 2.5 ? "gold" : "green", eye:a.eye.map((x,i)=>blend(x,b.eye[i])), mouth:a.mouth.replace(/-?\d+(?:\.\d+)?/g, x=>blend(Number(x),numbers[i++]).toFixed(2))};
+}
+
 function faceSvg(level, cls = "") {
-  const f = FACES[level];
+  const f = faceShape(level);
   return `<svg class="face ${cls}" viewBox="0 0 200 140" aria-hidden="true" style="--face-fg:var(--tone-${f.tone})">
     <ellipse class="eye" cx="62" cy="52" rx="${f.eye[0]}" ry="${f.eye[1]}"/>
     <ellipse class="eye" cx="138" cy="52" rx="${f.eye[0]}" ry="${f.eye[1]}"/>
@@ -94,7 +106,7 @@ function faceSvg(level, cls = "") {
 }
 
 function setFace(svg, level) {
-  const f = FACES[level];
+  const f = faceShape(level);
   svg.style.setProperty("--face-fg", `var(--tone-${f.tone})`);
   svg.querySelectorAll(".eye").forEach((eye) => {
     eye.setAttribute("rx", f.eye[0]);
@@ -128,11 +140,11 @@ function toast(text) {
 /* ---------- rendering ---------- */
 
 function render() {
-  document.body.classList.toggle("staff-view", me.role !== "player");
+  document.body.classList.toggle("staff-view", myRole !== "player");
   const wasOpen = new Map([...app.querySelectorAll("details")].map((d) => [d.dataset.id, d.open]));
-  if (me.role === "player") {
+  if (myRole === "player") {
     app.innerHTML = playerView();
-  } else if (me.role === "coach") {
+  } else if (myRole === "coach") {
     const mine = state.trainings.filter((t) => t.team === me.team);
     app.innerHTML =
       pageHead(`Szia, ${firstName(me.name)}!`, `${me.team} edzője · jelenlét és visszajelzések`) +
@@ -245,11 +257,11 @@ function openFeedback(trainingId) {
       </div>
       <h2>${esc(moodQ.text)}</h2>
       <div class="fb-face">${faceSvg(3, "face-lg")}<p class="fb-mood-label" id="mood-label"></p></div>
-      <input class="range" type="range" name="mood" min="0" max="4" step="1" value="3" aria-label="${esc(moodQ.text)}" />
+      <input class="range" type="range" name="mood" min="0" max="4" step="0.01" value="3" aria-label="${esc(moodQ.text)}" />
       ${rest
         .map(
           (q) => `<label class="fb-question"><span>${esc(q.text)}</span>
-            <input class="range" type="range" name="${q.id}" min="0" max="4" step="1" value="2" />
+            <input class="range" type="range" name="${q.id}" min="0" max="4" step="0.01" value="2" />
             <output>${esc(q.labels[2])}</output></label>`
         )
         .join("")}
@@ -261,10 +273,12 @@ function openFeedback(trainingId) {
 
   const form = dialog.querySelector("form");
   const applyMood = (level) => {
-    dialog.style.setProperty("--mood-bg", `var(--tone-${FACES[level].tone}-bg)`);
-    dialog.style.setProperty("--mood-fg", `var(--tone-${FACES[level].tone})`);
+    const green = level / 4 * 100;
+    dialog.style.setProperty("--mood-bg", `color-mix(in srgb, var(--tone-green-bg) ${green}%, var(--tone-gold-bg))`);
+    dialog.style.setProperty("--mood-fg", `color-mix(in srgb, var(--tone-green) ${green}%, var(--tone-gold))`);
     setFace(dialog.querySelector(".face-lg"), level);
-    dialog.querySelector("#mood-label").textContent = moodQ.labels[level];
+    dialog.querySelector(".face-lg").style.setProperty("--face-fg", "var(--mood-fg)");
+    dialog.querySelector("#mood-label").textContent = moodQ.labels[Math.round(level)];
   };
   applyMood(3);
 
@@ -272,9 +286,16 @@ function openFeedback(trainingId) {
     const input = event.target;
     if (input.name === "mood") applyMood(Number(input.value));
     else if (input.type === "range") {
-      input.nextElementSibling.textContent = store.QUESTIONS.find((q) => q.id === input.name).labels[input.value];
+      input.nextElementSibling.textContent = store.QUESTIONS.find((q) => q.id === input.name).labels[Math.round(Number(input.value))];
     }
+    if (input.type === "range") updateRange(input);
   });
+  function updateRange(input) {
+    const label = store.QUESTIONS.find(q=>q.id === input.name).labels[Math.round(Number(input.value))];
+    input.style.setProperty("--range-progress", `${Number(input.value)/4*100}%`);
+    input.setAttribute("aria-valuetext", label);
+  }
+  form.querySelectorAll(".range").forEach(updateRange);
   dialog.querySelector("[data-close]").addEventListener("click", () => dialog.close());
   form.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -326,7 +347,7 @@ function staffWorkspace(trainings, showTeam) {
   const ids = new Set(trainings.map(t => t.id));
   const recent = state.feedback.filter(f => ids.has(f.trainingId)).sort((a,b) => new Date(b.at)-new Date(a.at)).slice(0,4);
   const teamRows = [...new Set(trainings.map(t => t.team))].map(team => {
-    const players = state.users.filter(u => u.team === team && u.role === "player" && u.active);
+    const players = state.users.filter(u => u.team === team && store.baseRole(state, u.role) === "player" && u.active);
     return `<li><strong>${esc(team)}</strong><span>${players.length} aktív játékos</span></li>`;
   }).join("");
   return `<div class="staff-workspace"><section aria-label="Edzések áttekintése"><div class="workspace-toolbar"><h2>Edzésközpont</h2><label>Időszak <select data-filter="period">${[["all","Minden edzés"],["today","Ma"],["live","Folyamatban / nyitva"],["ended","Lezárult"]].map(([v,l]) => `<option value="${v}" ${v===periodFilter?"selected":""}>${l}</option>`).join("")}</select></label></div>${staffList(filtered, showTeam)}</section>
@@ -336,7 +357,7 @@ function staffWorkspace(trainings, showTeam) {
 
 function staffCard(t, now, showTeam) {
   const p = phase(t, now);
-  const roster = state.users.filter((u) => u.role === "player" && u.team === t.team && u.active);
+  const roster = state.users.filter((u) => store.baseRole(state, u.role) === "player" && u.team === t.team && u.active);
   const att = state.attendance[t.id] || {};
   const present = roster.filter((u) => att[u.id]).length;
   const fbs = state.feedback.filter((f) => f.trainingId === t.id);
@@ -400,6 +421,7 @@ function feedbackSummary(fbs, p) {
 
 function adminView() {
   const tabs = [
+    ...(myRole === "manager" ? [["system", "Rendszeráttekintés"], ["roles", "Szerepkörök & napló"]] : []),
     ["trainings", "Edzések"],
     ["users", "Felhasználók"],
     ["upload", "Beosztás feltöltése"],
@@ -407,8 +429,8 @@ function adminView() {
   const tabBar = `<nav class="tabs" role="tablist">${tabs
     .map(([id, label]) => `<button class="tab" type="button" role="tab" aria-selected="${adminTab === id}" data-act="tab" data-tab="${id}">${label}</button>`)
     .join("")}</nav>`;
-  const body = adminTab === "users" ? usersTab() : adminTab === "upload" ? uploadTab() : trainingsTab();
-  return pageHead(`Szia, ${firstName(me.name)}!`, "Adminisztráció · minden csapat edzése, felhasználók és beosztás") + `<div class="admin-layout">${tabBar}<div class="admin-content">${body}</div></div>`;
+  const body = adminTab === "system" && myRole === "manager" ? systemTab() : adminTab === "roles" && myRole === "manager" ? rolesTab() : adminTab === "users" ? usersTab() : adminTab === "upload" ? uploadTab() : trainingsTab();
+  return pageHead(`Szia, ${firstName(me.name)}!`, (myRole === "manager" ? "Rendszerfelügyelet · minden csapat, adminisztrátor és szerepkör" : "Adminisztráció · minden csapat edzése, felhasználók és beosztás")) + `<div class="admin-layout">${tabBar}<div class="admin-content">${body}</div></div>`;
 }
 
 function trainingsTab() {
@@ -421,41 +443,33 @@ function trainingsTab() {
     ${staffWorkspace(list, true)}`;
 }
 
+function roleOptions(selected = "player") {
+  return [...Object.keys(store.ROLES), ...state.customRoles.map(r=>r.id)].filter(role => store.canAssignRole(state, me.id, role))
+    .map(role=>`<option value="${esc(role)}" ${role===selected ? "selected" : ""}>${esc(store.roleLabel(state,role))}</option>`).join("");
+}
+
 function usersTab() {
-  const rows = [...state.users]
-    .sort((a, b) => a.role.localeCompare(b.role) || a.name.localeCompare(b.name, "hu"))
-    .map(
-      (u) => `<tr>
-        <td>${esc(u.name)}</td>
-        <td><code>${esc(u.talentx)}</code></td>
-        <td>${store.ROLES[u.role]}</td>
-        <td>${esc(u.team || "–")}</td>
-        <td><button class="switch" type="button" role="switch" aria-checked="${u.active}" data-act="toggle-user" data-id="${u.id}" ${
-          u.id === me.id ? "disabled" : ""
-        }><span></span>${u.active ? "Engedélyezve" : "Tiltva"}</button></td>
-      </tr>`
-    )
-    .join("");
-  const teamOptions = store.teams(state).map((t) => `<option>${esc(t)}</option>`).join("");
-  return `<section class="panel">
-      <h2>Felhasználók</h2>
-      <p class="panel-intro">Csak engedélyezett felhasználó léphet be. A belépés a TalentX azonosítóval történik.</p>
-      <div class="table-wrap"><table class="user-table">
-        <thead><tr><th>Név</th><th>TalentX</th><th>Szerepkör</th><th>Csapat</th><th>Hozzáférés</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table></div>
-    </section>
-    <section class="panel">
-      <h2>Új felhasználó</h2>
-      <form class="add-user" data-form="add-user">
-        <label>Név<input name="name" required autocomplete="off" /></label>
-        <label>TalentX azonosító<input name="talentx" required placeholder="TX-1234" autocomplete="off" /></label>
-        <label>Szerepkör<select name="role"><option value="player">Játékos</option><option value="coach">Edző</option><option value="admin">Admin</option></select></label>
-        <label>Csapat<select name="team">${teamOptions}<option value="">–</option></select></label>
-        <button class="btn" type="submit">HOZZÁADÁS</button>
-      </form>
-      <p class="panel-intro">Az új felhasználó a demó jelszóval (<code>${store.DEMO_PASSWORD}</code>) tud belépni.</p>
-    </section>`;
+  const teams = store.teams(state).map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join("");
+  const rows = [...state.users].sort((a,b)=>a.name.localeCompare(b.name,"hu")).map(u=> {
+    const editable = store.canManageUser(state,me.id,u.id);
+    return `<tr><td>${esc(u.name)}</td><td><code>${esc(u.talentx)}</code></td><td>${esc(store.roleLabel(state,u.role))}</td><td>${esc(u.team || "–")}</td>
+      <td><button class="switch" type="button" role="switch" aria-checked="${u.active}" data-act="toggle-user" data-id="${u.id}" ${editable ? "" : "disabled"}><span></span>${u.active?"Engedélyezve":"Tiltva"}</button></td>
+      <td>${editable ? `<form data-form="edit-role" data-user-id="${u.id}" class="role-edit"><label class="sr-only" for="role-${u.id}">Szerepkör: ${esc(u.name)}</label><select id="role-${u.id}" name="role">${roleOptions(u.role)}</select><label class="sr-only" for="team-${u.id}">Csapat: ${esc(u.name)}</label><select id="team-${u.id}" name="team"><option value="">Nincs csapat</option>${store.teams(state).map(t=>`<option ${t===u.team?"selected":""}>${esc(t)}</option>`).join("")}</select><button type="submit" class="btn btn-secondary">Mentés</button></form>` : '<span class="empty">Védett fiók</span>'}</td></tr>`;
+  }).join("");
+  return `<section class="panel"><h2>Felhasználók és hozzáférések</h2><p class="panel-intro">${myRole === "manager" ? "Adminokat és rendszergazdákat is létrehozhatsz; a saját fiókod védett." : "Játékosokat és edzőket kezelhetsz. Az adminok és rendszergazdák fiókjait a rendszergazda kezeli."}</p>
+    <div class="table-wrap"><table class="user-table"><thead><tr><th>Név</th><th>TalentX</th><th>Szerepkör</th><th>Csapat</th><th>Hozzáférés</th><th>Szerepkör módosítása</th></tr></thead><tbody>${rows}</tbody></table></div></section>
+    <section class="panel"><h2>Új felhasználó</h2><form class="add-user" data-form="add-user"><label>Név<input name="name" required maxlength="80" autocomplete="off"></label><label>TalentX azonosító<input name="talentx" required pattern="[A-Za-z0-9-]{3,40}" maxlength="40" placeholder="TX-1234" autocomplete="off"></label><label>Szerepkör<select name="role">${roleOptions()}</select></label><label>Csapat<select name="team">${teams}<option value="">Nincs csapat</option></select></label><button class="btn" type="submit">HOZZÁADÁS</button></form><p class="panel-intro">Az új felhasználó demó jelszava: <code>${store.DEMO_PASSWORD}</code>. A játékosoknak és edzőknek csapat szükséges.</p></section>`;
+}
+
+function systemTab() {
+  return tiles([["Felhasználók",state.users.length],["Aktív adminok",state.users.filter(u=>u.active && store.baseRole(state,u.role)==="admin").length],["Összes visszajelzés",state.feedback.length]]) +
+    `<section class="panel"><h2>A teljes portál egy helyen</h2><p class="panel-intro">${state.trainings.length} edzés · ${store.teams(state).length} csapat · ${Object.values(state.attendance).reduce((n,a)=>n+Object.keys(a).length,0)} jelenléti bejegyzés · ${state.uploads.length} beosztásfeltöltés</p><div class="system-actions"><button class="btn" data-act="tab" data-tab="users">Fiókok kezelése</button><button class="btn btn-secondary" data-act="tab" data-tab="roles">Szerepkörök és napló</button><button class="btn btn-secondary" data-act="tab" data-tab="trainings">Minden edzés és visszajelzés</button></div></section>` + staffWorkspace(state.trainings,true);
+}
+
+function rolesTab() {
+  return `<section class="panel"><h2>Szerepkörök</h2><p class="panel-intro">Az egyéni szerepkör egy meglévő hozzáférési szintet örököl. Rendszergazdai jogot csak a beépített Rendszergazda szerep ad.</p><ul class="role-list">${[...Object.keys(store.ROLES),...state.customRoles.map(r=>r.id)].map(role=>`<li><strong>${esc(store.roleLabel(state,role))}</strong><span>${esc({player:"Saját csapat, saját jelenlét és visszajelzés",coach:"Saját csapat jelenléte és visszajelzései",admin:"Minden csapat, beosztás, játékosok és edzők kezelése",manager:"Teljes felügyelet, adminfiókok és szerepkörök kezelése"}[store.baseRole(state,role)])}</span></li>`).join("")}</ul>
+    <form class="add-user" data-form="add-role"><label>Új szerepkör neve<input name="name" required maxlength="60" placeholder="Pl. Vezetőedző"></label><label>Jogosultsági szint<select name="base"><option value="coach">Edző · saját csapat</option><option value="admin">Admin · minden csapat</option><option value="player">Játékos · saját adatok</option></select></label><button type="submit" class="btn">Szerepkör létrehozása</button></form></section>
+    <section class="panel"><h2>Fiók- és szerepkörnapló</h2><p class="panel-intro">Az utolsó 200 fiók- és szerepkörmódosítás ebben a böngészőben.</p><ul class="role-list">${state.audit.length ? state.audit.map(entry=>`<li><div><strong>${esc(entry.action)}</strong><p>${esc(entry.detail)}</p></div><span>${esc(userById(entry.actorId)?.name || "Ismeretlen")} · ${esc(new Date(entry.at).toLocaleString("hu-HU"))}</span></li>`).join("") : '<li>Még nem történt módosítás.</li>'}</ul></section>`;
 }
 
 function uploadTab() {
@@ -507,7 +521,8 @@ function onClick(event) {
     render();
   } else if (act === "toggle-user") {
     const user = userById(id);
-    user.active = !user.active;
+    const error = store.updateUser(state, me.id, id, {active: !user?.active});
+    if (error) return toast(error);
     commit();
   } else if (act === "template") {
     downloadTemplate();
@@ -534,24 +549,15 @@ function onChange(event) {
 
 function onSubmit(event) {
   const form = event.target;
-  if (form.dataset.form !== "add-user") return;
+  if (!["add-user", "edit-role", "add-role"].includes(form.dataset.form)) return;
   event.preventDefault();
   const data = Object.fromEntries(new FormData(form));
-  const talentx = data.talentx.trim().toUpperCase();
-  if (state.users.some((u) => u.talentx.toUpperCase() === talentx)) {
-    toast("Ez a TalentX azonosító már létezik.");
-    return;
-  }
-  state.users.push({
-    id: "u" + Date.now(),
-    talentx,
-    name: data.name.trim(),
-    role: data.role,
-    team: data.role === "admin" ? "" : data.team,
-    active: true,
-  });
+  const error = form.dataset.form === "add-user" ? store.createUser(state,me.id,data)
+    : form.dataset.form === "edit-role" ? store.updateUser(state,me.id,form.dataset.userId,{role:data.role,team:data.team})
+    : store.createRole(state,me.id,data.name,data.base);
+  if (error) return toast(error);
   commit();
-  toast(`${data.name.trim()} hozzáadva.`);
+  toast("A módosítás elmentve.");
 }
 
 /* ---------- schedule upload ---------- */

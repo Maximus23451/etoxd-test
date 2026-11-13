@@ -923,3 +923,69 @@
   .roster li { flex-wrap:wrap; }
   .tc-body p,.tc-time span { font-size:16px; }
 }
+
+/* System manager controls */
+.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+.role-edit,.system-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.role-edit select { max-width:170px; min-height:44px; padding:8px; background:var(--input-bg); color:var(--text); border:1px solid var(--line-strong); border-radius:8px; font:400 16px FuturaPT,sans-serif; }
+.role-list { list-style:none; padding:0; margin:16px 0; }
+.role-list li { display:flex; gap:20px; justify-content:space-between; padding:14px 0; border-bottom:1px solid var(--line); }
+.role-list span { color:var(--muted); }
+.role-list p { margin:6px 0 0; }
+.user-table .switch { min-height:44px; }
+/* Fractional input drives the face directly; no delayed step-to-step transitions. */
+.feedback-dialog .face .eye,.feedback-dialog .face .mouth { transition:none; }
+.feedback-dialog { transition:background .08s linear; }
+.range { height:44px; touch-action:pan-y; cursor:pointer; }
+.range::-webkit-slider-runnable-track { height:10px; background:linear-gradient(to right,var(--range-fg) var(--range-progress,50%),var(--range-track) var(--range-progress,50%)); }
+.range::-moz-range-track { height:10px; background:linear-gradient(to right,var(--range-fg) var(--range-progress,50%),var(--range-track) var(--range-progress,50%)); }
+.range::-webkit-slider-thumb { margin-top:-11px; width:32px; height:32px; }
+.range::-moz-range-thumb { width:24px; height:24px; }
+.fb-question { gap:4px; }
+@media(max-width:760px) {
+  .topbar { display:grid; grid-template-columns:40px minmax(0,1fr); padding:8px 12px; }
+  .topbar-brand img { width:36px; }
+  .topbar-user { display:grid; grid-template-columns:minmax(0,1fr) 40px auto; gap:6px 8px; }
+  .topbar-who { text-align:left; overflow:hidden; text-overflow:ellipsis; }
+  .topbar .appearance-trigger { grid-column:1 / -1; order:unset; min-height:36px; text-align:left; padding:7px 10px; }
+  .topbar-toggle { grid-column:2; grid-row:1; width:40px; height:40px; }
+  #logout { grid-column:3; grid-row:1; min-height:40px; padding:8px 10px; font-size:14px; }
+  .app-main { padding:20px 14px 32px; }
+  .tiles { gap:6px; }
+  .tile { padding:10px 8px; }
+  .tile strong { font-family:FuturaPT,sans-serif; font-weight:700; font-size:18px; line-height:1.2; }
+  .tile span { font-size:13px; min-height:32px; }
+  .priority-section { margin-top:16px; padding:12px 10px 2px; }
+  .priority-section > p { margin:4px 0 12px; font-size:15px; }
+  .training-card { padding:14px; gap:10px; grid-template-columns:54px minmax(0,1fr); }
+  .training-card .tc-body h3 { font-size:17px; }
+  .training-card .tc-body p { font-size:15px; line-height:1.4; }
+  .training-card .tc-action:has(.chip) { grid-column:2; }
+  .tc-action .btn { min-height:48px; font-size:16px; letter-spacing:.05em; }
+  .notice { align-items:flex-start; overflow-wrap:anywhere; line-height:1.4; }
+  .notice .gold-rule { margin-top:8px; }
+  .day-group h2 { margin:24px 0 10px; line-height:1.4; }
+  .staff-workspace { margin-top:20px; gap:20px; }
+  .workspace-toolbar { gap:12px; }
+  .workspace-toolbar label { width:100%; justify-content:space-between; }
+  .workspace-toolbar select { flex:1; min-width:0; min-height:44px; }
+  .staff-card summary { grid-template-columns:52px minmax(0,1fr) 20px; padding:14px; gap:10px; }
+  .staff-card summary > .chevron { grid-column:3; grid-row:1; }
+  .sc-stats { font-size:14px; }
+  .sc-stats .chip { font-size:13px; padding:5px 8px; }
+  .sc-detail { padding:0 14px 14px; }
+  .staff-view .sc-detail { grid-template-columns:minmax(0,1fr); }
+  .roster li { gap:8px; padding:10px 0; }
+  .roster li > span:first-child { flex:1; min-width:90px; }
+  .staff-aside .panel { padding:16px; }
+  .panel { padding:18px 16px; }
+  .fb-form { padding:16px 18px 20px; gap:10px; }
+  .fb-form h2 { font-size:28px; }
+  .face-lg { width:150px; }
+  .fb-mood-label { font-size:22px; }
+  .fb-form .submit-button { min-height:48px; }
+  .feedback-dialog { max-height:calc(100dvh - 16px); border-radius:20px; }
+  .fb-form textarea { font-size:16px; }
+  .role-list li { flex-direction:column; gap:6px; overflow-wrap:anywhere; }
+}
+@media(prefers-reduced-motion:reduce) { .feedback-dialog { transition:none; } .live-dot::before { animation:none; } }
