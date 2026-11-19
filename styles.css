@@ -1,8 +1,8 @@
-@font-face{font-family:FuturaDisplay;src:url("public/assets/fonts/futura-display-xbd.otf") format("opentype");font-weight:800;font-display:swap}
-@font-face{font-family:FuturaDisplay;src:url("public/assets/fonts/futura-display-bold.otf") format("opentype");font-weight:700;font-display:swap}
-@font-face{font-family:FuturaPT;src:url("public/assets/fonts/futura-pt-book.otf") format("opentype");font-weight:400;font-display:swap}
+@font-face{font-family:FuturaDisplay;src:url("/assets/fonts/futura-display-xbd.otf") format("opentype");font-weight:800;font-display:swap}
+@font-face{font-family:FuturaDisplay;src:url("/assets/fonts/futura-display-bold.otf") format("opentype");font-weight:700;font-display:swap}
+@font-face{font-family:FuturaPT;src:url("/assets/fonts/futura-pt-book.otf") format("opentype");font-weight:400;font-display:swap}
 
-/* Brand palette: ETO green, gold and cream. Everything else is a tint or neutral of these. */
+/* Fixed brand anchors: ETO green, gold and cream. Muted complementary palettes are permitted; no purple or neon. */
 :root{
   --green:#176131;--green-bright:#20743a;--green-deep:#124e2b;--gold:#b8994d;--gold-light:#d8bd72;--cream:#f9f5ef;
   color-scheme:light;

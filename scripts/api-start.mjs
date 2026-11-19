@@ -1,0 +1,11 @@
+import {existsSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {spawn} from 'node:child_process';
+const dotnet=process.env.DOTNET_ROOT?process.env.DOTNET_ROOT+'/dotnet':existsSync('/workspace/.dotnet/dotnet')?'/workspace/.dotnet/dotnet':'dotnet';
+const watch=process.argv.includes('--watch');
+const env={ASPNETCORE_ENVIRONMENT:'Development',ASPNETCORE_URLS:'http://127.0.0.1:3001',DOTNET_CLI_HOME:'/workspace/.dotnet-home',NUGET_PACKAGES:'/workspace/.nuget',DOTNET_CLI_TELEMETRY_OPTOUT:'1',...process.env};
+const dll=resolve('api/bin/Debug/net10.0/Eto.Api.dll');
+if(!watch && !existsSync(dll))throw Error('Build the API first: npm run build:api');
+const child=spawn(dotnet,watch?['watch','--project',resolve('api'),'run','--no-launch-profile']:[dll],{cwd:resolve('api'),stdio:'inherit',env});
+for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>child.kill(signal));
+child.on('exit',code=>process.exit(code || 0));
